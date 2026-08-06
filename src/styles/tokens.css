@@ -1,0 +1,64 @@
+/* PrizePath design tokens — colors lifted directly from the design-system
+   prototype (PrizePath.dc.html), not the generic Nocturne doc theme. */
+:root {
+  --pp-bg: #E7EDF9;
+  --pp-bg-alt: #EEF3FE;
+  --pp-surface: #FFFFFF;
+  --pp-border: #DCE5F5;
+  --pp-border-strong: #D7E2F5;
+  --pp-text: #16305F;
+  --pp-text-soft: #3C4E70;
+  --pp-text-muted: #5A6E93;
+  --pp-text-faint: #8494B4;
+  --pp-text-faint-2: #93A3C2;
+
+  --pp-blue: #2B6BF5;
+  --pp-blue-dark: #1B4BB8;
+  --pp-blue-darker: #173F99;
+  --pp-blue-tint: #E3EDFF;
+
+  --pp-amber: #FFB020;
+  --pp-amber-dark: #E09000;
+  --pp-amber-darker: #7A4E00;
+  --pp-amber-tint: #FFF3DC;
+  --pp-gold: #FFC94A;
+
+  --pp-green: #1FA971;
+  --pp-green-dark: #17845A;
+  --pp-green-tint: #E9F8F1;
+
+  --pp-red: #E5484D;
+  --pp-red-dark: #C22B30;
+  --pp-red-tint: #FEECEC;
+
+  --pp-purple: #7C5CE0;
+  --pp-purple-dark: #6446C4;
+  --pp-purple-tint: #F3EEFF;
+
+  --pp-radius-sm: 10px;
+  --pp-radius-md: 14px;
+  --pp-radius-lg: 20px;
+  --pp-radius-xl: 26px;
+  --pp-shadow-sm: 0 3px 12px rgba(23,53,107,.07);
+  --pp-shadow-md: 0 8px 18px rgba(43,107,245,.3);
+  --pp-font: 'Rubik', system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body { padding: 0; margin: 0; background: var(--pp-bg); color: var(--pp-text); font-family: var(--pp-font); }
+
+a { color: var(--pp-blue); text-decoration: none; }
+a:hover { color: var(--pp-blue-dark); }
+
+button, input, textarea, select { font-family: inherit; }
+
+button:focus-visible, input:focus-visible, a:focus-visible, textarea:focus-visible {
+  outline: 3px solid var(--pp-amber);
+  outline-offset: 2px;
+}
+
+::selection { background: #CFE0FF; }
+
+[dir="rtl"] { direction: rtl; }
+[dir="ltr"] { direction: ltr; }
