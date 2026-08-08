@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useLocale } from "@/components/LocaleProvider";
 import { AuthShell, LangPill } from "@/components/auth/AuthShell";
@@ -17,7 +18,7 @@ export default function WelcomePage() {
         }}
       >
         <div style={{ padding: "18px 22px 0", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <span style={{ fontSize: 22, fontWeight: 800, color: "var(--pp-blue-dark)" }}>PrizePath</span>
+          <Image src="/logo.png" alt="PrizePath" width={118} height={32} style={{ width: 118, height: "auto" }} priority />
           <LangPill />
         </div>
 
