@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "@/components/LocaleProvider";
@@ -20,10 +20,8 @@ export default function SignInPage() {
   // previously these redirects were silent, making it impossible to tell
   // "OAuth actually failed" apart from "never got here at all" without
   // reading server logs. This makes that visible right on the page.
-  useEffect(() => {
-    const oauthError = searchParams.get("error");
-    if (oauthError) setError(`Google sign-in error: ${oauthError}`);
-  }, [searchParams]);
+  const oauthError = searchParams.get("error");
+  const displayError = error ?? (oauthError ? `Google sign-in error: ${oauthError}` : null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -60,7 +58,7 @@ export default function SignInPage() {
           <span />
           <Link href="/forgot">{t("forgot")}</Link>
         </div>
-        {error && <div className="pp-error"><i className="ph-fill ph-warning-circle" style={{ fontSize: 16 }} />{error}</div>}
+        {displayError && <div className="pp-error"><i className="ph-fill ph-warning-circle" style={{ fontSize: 16 }} />{displayError}</div>}
         <button className="pp-btn pp-btn-primary" type="submit" disabled={loading}>
           {loading ? t("loading") : t("signInBtn")}
         </button>
