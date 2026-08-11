@@ -45,8 +45,32 @@ export function LangPill() {
  * Supabase session — the same session type parent email/password and
  * child PIN sign-in already produce, so RLS keeps working unchanged.
  * No Google client secret ever touches this app's code or env vars.
+ *
+ * `role` is threaded through as a query param on the callback URL so the
+ * callback route knows whether to provision a brand-new parent profile
+ * (role=parent, the default — unchanged behavior) or to treat this as a
+ * child sign-in, where no profile is ever auto-created — see
+ * `LinkGoogleButton` below for how a child's Google identity gets linked
+ * in the first place.
+ *
+ * `mode="link"` switches to `linkIdentity`, which attaches a Google
+ * identity to the CURRENTLY SIGNED-IN user's existing auth.users row
+ * instead of starting a new sign-in — this is how a child (who has no
+ * email/password of their own) gains the ability to sign in with Google
+ * later: they log in with username+PIN first, then link Google from their
+ * profile page. Requires "Allow manual linking of identities" to be
+ * enabled in the Supabase dashboard (Authentication → Settings) — a
+ * dashboard-only setting, same as the Google provider itself.
  */
-export function GoogleSignInButton() {
+export function GoogleSignInButton({
+  role = "parent",
+  next,
+  mode = "signin",
+}: {
+  role?: "parent" | "child";
+  next?: string;
+  mode?: "signin" | "link";
+}) {
   const { t } = useLocale();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -55,12 +79,20 @@ export function GoogleSignInButton() {
     setError(null);
     setLoading(true);
     const supabase = createClient();
-    const { error: oauthError } = await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: `${window.location.origin}/api/auth/callback`,
-      },
-    });
+    const callbackUrl = new URL(`${window.location.origin}/api/auth/callback`);
+    callbackUrl.searchParams.set("role", role);
+    if (next) callbackUrl.searchParams.set("next", next);
+
+    const { error: oauthError } =
+      mode === "link"
+        ? await supabase.auth.linkIdentity({
+            provider: "google",
+            options: { redirectTo: callbackUrl.toString() },
+          })
+        : await supabase.auth.signInWithOAuth({
+            provider: "google",
+            options: { redirectTo: callbackUrl.toString() },
+          });
     if (oauthError) {
       setError(oauthError.message);
       setLoading(false);
@@ -70,11 +102,13 @@ export function GoogleSignInButton() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--pp-text-faint)", fontSize: 12 }}>
-        <span style={{ flex: 1, height: 1, background: "var(--pp-border)" }} />
-        {t("orContinue")}
-        <span style={{ flex: 1, height: 1, background: "var(--pp-border)" }} />
-      </div>
+      {mode === "signin" && (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, color: "var(--pp-text-faint)", fontSize: 12 }}>
+          <span style={{ flex: 1, height: 1, background: "var(--pp-border)" }} />
+          {t("orContinue")}
+          <span style={{ flex: 1, height: 1, background: "var(--pp-border)" }} />
+        </div>
+      )}
       <button
         type="button"
         onClick={onClick}
@@ -97,7 +131,7 @@ export function GoogleSignInButton() {
         }}
       >
         <i className="ph ph-google-logo" style={{ fontSize: 18 }} />
-        {t("continueWithGoogle")}
+        {mode === "link" ? t("linkGoogleAccount") : t("continueWithGoogle")}
       </button>
       {error && (
         <div className="pp-error">

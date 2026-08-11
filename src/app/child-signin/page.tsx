@@ -1,18 +1,29 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useLocale } from "@/components/LocaleProvider";
-import { AuthShell, BackButton } from "@/components/auth/AuthShell";
+import { AuthShell, BackButton, GoogleSignInButton } from "@/components/auth/AuthShell";
 import { api } from "@/lib/apiClient";
 
 export default function ChildSignInPage() {
   const { t } = useLocale();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
   const [pin, setPin] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Surfaces ?error=... from /api/auth/callback (Google OAuth failures,
+  // or a Google account that was never linked to a child profile).
+  const oauthErrorCode = searchParams.get("error");
+  const oauthError =
+    oauthErrorCode === "google_not_linked"
+      ? t("googleNotLinked")
+      : oauthErrorCode
+        ? `Google sign-in error: ${oauthErrorCode}`
+        : null;
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -48,10 +59,16 @@ export default function ChildSignInPage() {
           {t("pin")}
           <input className="pp-input" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} required />
         </label>
-        {error && <div className="pp-error"><i className="ph-fill ph-warning-circle" style={{ fontSize: 16 }} />{error}</div>}
+        {(error || oauthError) && (
+          <div className="pp-error">
+            <i className="ph-fill ph-warning-circle" style={{ fontSize: 16 }} />
+            {error ?? oauthError}
+          </div>
+        )}
         <button className="pp-btn pp-btn-primary" type="submit" disabled={loading}>
           {loading ? t("loading") : t("continueBtn")}
         </button>
+        <GoogleSignInButton role="child" next="/child/home" />
       </form>
     </AuthShell>
   );

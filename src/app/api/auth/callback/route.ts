@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { createServiceClient } from "@/lib/server/serviceClient";
 import { ensureParentProfileForOAuthUser } from "@/lib/server/family";
 
 // Google (and any future OAuth provider) redirects here after Supabase's
@@ -22,11 +23,19 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const oauthError = searchParams.get("error_description");
+  // Which flow started this OAuth round-trip — set by GoogleSignInButton.
+  // "child" means never auto-provision a profile here (see below); a child
+  // profile only ever gets a Google identity via explicit linking from
+  // their own (already-authenticated) profile page.
+  const role = searchParams.get("role") === "child" ? "child" : "parent";
+  const signinPath = role === "child" ? "/child-signin" : "/signin";
+  const defaultNext = role === "child" ? "/child/home" : "/parent/home";
+  const next = searchParams.get("next") || defaultNext;
 
-  console.log("[auth/callback] hit:", { hasCode: !!code, hasError: !!oauthError });
+  console.log("[auth/callback] hit:", { hasCode: !!code, hasError: !!oauthError, role });
 
   if (oauthError) {
-    return NextResponse.redirect(`${origin}/signin?error=${encodeURIComponent(oauthError)}`);
+    return NextResponse.redirect(`${origin}${signinPath}?error=${encodeURIComponent(oauthError)}`);
   }
   if (!code) {
     // If you never see this route's "[auth/callback] hit" log line at all
@@ -35,10 +44,10 @@ export async function GET(request: Request) {
     // Authentication → URL Configuration → Redirect URLs, so Supabase fell
     // back to the Site URL instead of honoring redirectTo.
     console.error("[auth/callback] no code param present");
-    return NextResponse.redirect(`${origin}/signin?error=missing_code`);
+    return NextResponse.redirect(`${origin}${signinPath}?error=missing_code`);
   }
 
-  const redirectResponse = NextResponse.redirect(`${origin}/parent/home`);
+  const redirectResponse = NextResponse.redirect(`${origin}${next}`);
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -71,10 +80,34 @@ export async function GET(request: Request) {
   if (error || !data.user) {
     // Never leak the raw Supabase error to the URL/client — log server-side only.
     console.error("[auth/callback] exchangeCodeForSession failed:", error?.message);
-    return NextResponse.redirect(`${origin}/signin?error=oauth_failed`);
+    return NextResponse.redirect(`${origin}${signinPath}?error=oauth_failed`);
   }
 
   console.log("[auth/callback] session established for auth user:", data.user.id);
+
+  if (role === "child") {
+    // Children never get a profile auto-created off a bare Google sign-in —
+    // that would let anyone with a Google account mint themselves a child
+    // account with no family/parent attached. A child profile can only gain
+    // a Google identity via explicit linking (see LinkGoogleButton), which
+    // runs against their EXISTING auth.users row while they're already
+    // signed in via username+PIN. So by the time we get here, either the
+    // identity was already linked to a real child profile (fine — sign
+    // them in) or it wasn't (reject, don't provision anything).
+    const admin = createServiceClient();
+    const { data: profile } = await admin
+      .from("profiles")
+      .select("id, role")
+      .eq("auth_user_id", data.user.id)
+      .maybeSingle();
+
+    if (!profile || profile.role !== "child") {
+      console.error("[auth/callback] no linked child profile for auth user:", data.user.id);
+      return NextResponse.redirect(`${origin}/child-signin?error=google_not_linked`);
+    }
+
+    return redirectResponse;
+  }
 
   try {
     await ensureParentProfileForOAuthUser({

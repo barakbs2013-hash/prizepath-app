@@ -2,6 +2,7 @@ import { getCurrentProfile } from "@/lib/server/currentProfile";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n";
 import { SignOutButton } from "@/components/SignOutButton";
+import { GoogleSignInButton } from "@/components/auth/AuthShell";
 
 export default async function ChildProfilePage() {
   const profile = await getCurrentProfile();
@@ -29,6 +30,10 @@ export default async function ChildProfilePage() {
             <span style={{ fontSize: 11.5, color: "var(--pp-text-muted)" }}>{t("points")}</span>
           </span>
         </div>
+      </div>
+      <div className="pp-card" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ fontSize: 13.5, color: "var(--pp-text-muted)" }}>{t("linkGoogleAccountHint")}</div>
+        <GoogleSignInButton role="child" mode="link" next="/child/profile?linked=1" />
       </div>
       <SignOutButton />
     </div>
