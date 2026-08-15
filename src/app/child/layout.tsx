@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getCurrentProfile } from "@/lib/server/currentProfile";
 import { ChildTabBar } from "@/components/ChildTabBar";
+import { NotificationPopup } from "@/components/child/NotificationPopup";
 
 export default async function ChildLayout({ children }: { children: React.ReactNode }) {
   const profile = await getCurrentProfile();
@@ -12,6 +13,7 @@ export default async function ChildLayout({ children }: { children: React.ReactN
       <div className="pp-container">
         {children}
         <ChildTabBar />
+        <NotificationPopup />
       </div>
     </div>
   );
