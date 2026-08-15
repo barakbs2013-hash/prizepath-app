@@ -2,24 +2,12 @@ import { NextResponse } from "next/server";
 import { requireChild } from "@/lib/server/currentProfile";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/server/serviceClient";
-import { getOpenAIClient, AI_MODEL } from "@/lib/server/openai";
+import { getAiProvider } from "@/lib/server/aiProvider";
+import { demoCoachReply, parsePipResponse, PIP_JSON_SHAPE } from "@/lib/server/pip";
 import { aiTaskAssistantSchema } from "@/lib/validation/schemas";
 import { handleApiError } from "@/lib/server/apiUtils";
 
 const RATE_LIMIT_PER_HOUR = 20;
-
-const RESPONSE_SCHEMA = {
-  type: "object",
-  properties: {
-    short_message: { type: "string" },
-    suggested_steps: { type: "array", items: { type: "string" } },
-    estimated_order: { type: "array", items: { type: "string" } },
-    encouragement: { type: "string" },
-    safety_notice: { type: "string" },
-  },
-  required: ["short_message", "suggested_steps", "encouragement"],
-  additionalProperties: false,
-} as const;
 
 function systemPrompt(opts: { childName: string; taskTitle: string; taskDescription: string; premium: boolean; language: string }) {
   const langLine =
@@ -41,7 +29,9 @@ Rules you must always follow:
 - ${opts.premium ? "You may provide a more detailed, multi-step plan with time estimates (premium plan)." : "Keep your plan brief (max 3 steps) — mention that a Premium plan unlocks more detailed AI planning."}
 - ${langLine}
 
-Always respond with a JSON object matching the required schema — nothing else.`;
+Reply with ONE JSON object and nothing else — no prose before or after, no code fences.
+Use exactly this shape:
+${PIP_JSON_SHAPE}`;
 }
 
 
@@ -153,39 +143,51 @@ export async function POST(request: Request) {
       content: body.message,
     });
 
-    let structured;
-    try {
-      const openai = getOpenAIClient();
-      const completion = await openai.chat.completions.create({
-        model: AI_MODEL,
-        messages: [
-          {
-            role: "system",
-            content: systemPrompt({
-              childName: child.displayName,
-              taskTitle: task.title,
-              taskDescription: task.description ?? "",
-              premium,
-              language: body.language ?? child.preferredLanguage ?? "he",
-            }),
-          },
-          { role: "user", content: body.message },
-        ],
-        response_format: {
-          type: "json_schema",
-          json_schema: { name: "pip_response", schema: RESPONSE_SCHEMA, strict: true },
-        },
+    const language = body.language ?? child.preferredLanguage ?? "he";
+    const demoFallback = () =>
+      demoCoachReply({
+        childName: child.displayName,
+        taskTitle: task.title,
+        message: body.message,
+        language,
+        premium,
       });
-      const raw = completion.choices[0]?.message?.content ?? "{}";
-      structured = JSON.parse(raw);
-    } catch {
-      // Never leak raw provider errors to the client.
-      structured = {
-        short_message:
-          "Pip is having trouble right now. Please try again in a moment.",
-        suggested_steps: [],
-        encouragement: "You've got this — try again shortly.",
-      };
+
+    let structured;
+    const provider = getAiProvider();
+    if (!provider) {
+      // No key configured anywhere — still answer usefully, flagged as demo.
+      structured = demoFallback();
+    } else {
+      try {
+        const completion = await provider.client.chat.completions.create({
+          model: provider.model,
+          // json_object is the one JSON mode every OpenAI-compatible provider
+          // supports; OpenAI-only strict json_schema would 400 on Groq et al.
+          response_format: { type: "json_object" },
+          temperature: 0.6,
+          max_tokens: 700,
+          messages: [
+            {
+              role: "system",
+              content: systemPrompt({
+                childName: child.displayName,
+                taskTitle: task.title,
+                taskDescription: task.description ?? "",
+                premium,
+                language,
+              }),
+            },
+            { role: "user", content: body.message },
+          ],
+        });
+        structured = parsePipResponse(completion.choices[0]?.message?.content ?? "");
+      } catch (aiError) {
+        // Never leak raw provider errors to the client — log them, and let the
+        // child keep getting something actionable.
+        console.error("[ai] provider call failed:", provider.name, provider.model, aiError);
+        structured = demoFallback();
+      }
     }
 
     await supabase.from("ai_messages").insert({

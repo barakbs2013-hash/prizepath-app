@@ -44,6 +44,9 @@ export default function PipChatPage({ params }: { params: Promise<{ taskId: stri
         text += "\n" + parsed.suggested_steps.map((s: string, i: number) => `${i + 1}. ${s}`).join("\n");
       }
       if (parsed.encouragement) text += "\n\n" + parsed.encouragement;
+      // Covers both a real refusal notice and the "running in demo mode"
+      // disclaimer the server attaches when no AI provider is configured.
+      if (parsed.safety_notice) text += "\n\nⓘ " + parsed.safety_notice;
       return text;
     } catch {
       return raw;
