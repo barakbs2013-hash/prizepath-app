@@ -17,16 +17,31 @@ export default function NewChildPage() {
   const [loading, setLoading] = useState(false);
   const [created, setCreated] = useState<{ username: string; pin: string } | null>(null);
 
+  // Mirrors createChildSchema in src/lib/validation/schemas.ts. Checked here
+  // too so the parent gets a specific message instead of the API's generic
+  // "Invalid input" — the most common mistake is typing an email address.
+  const USERNAME_RE = /^[a-z0-9_.]{3,32}$/;
+  const PIN_RE = /^[0-9]{4,6}$/;
+
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    const trimmedUsername = username.trim().toLowerCase();
+    if (!USERNAME_RE.test(trimmedUsername)) {
+      setError(t("usernameInvalid"));
+      return;
+    }
+    if (!PIN_RE.test(pin.trim())) {
+      setError(t("pinInvalid"));
+      return;
+    }
     setLoading(true);
     try {
       const res = await api.post<{ username: string; pin: string }>("/api/children", {
         displayName,
         age: Number(age) || undefined,
-        username,
-        pin,
+        username: trimmedUsername,
+        pin: pin.trim(),
       });
       setCreated(res);
     } catch (err) {
@@ -63,8 +78,10 @@ export default function NewChildPage() {
       <div style={{ display: "flex", gap: 10 }}>
         <label className="pp-field" style={{ flex: 1 }}>{t("childAge")}<input className="pp-input" value={age} onChange={(e) => setAge(e.target.value)} inputMode="numeric" /></label>
       </div>
-      <label className="pp-field">{t("username")}<input className="pp-input" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} required /></label>
-      <label className="pp-field">{t("pin")}<input className="pp-input" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value)} required minLength={4} maxLength={6} /></label>
+      <label className="pp-field">{t("username")}<input className="pp-input" value={username} onChange={(e) => setUsername(e.target.value.toLowerCase())} autoComplete="off" spellCheck={false} required /></label>
+      <span style={{ fontSize: 12, color: "var(--pp-text-soft)", marginTop: -6 }}>{t("usernameHint")}</span>
+      <label className="pp-field">{t("pin")}<input className="pp-input" type="password" inputMode="numeric" value={pin} onChange={(e) => setPin(e.target.value.replace(/\D/g, ""))} required minLength={4} maxLength={6} /></label>
+      <span style={{ fontSize: 12, color: "var(--pp-text-soft)", marginTop: -6 }}>{t("pinHint")}</span>
       <div style={{ background: "var(--pp-bg-alt)", borderRadius: 16, padding: 14, display: "flex", gap: 10 }}>
         <i className="ph-fill ph-info" style={{ fontSize: 18, color: "var(--pp-blue)" }} />
         <span style={{ fontSize: 13, color: "var(--pp-text-soft)", lineHeight: 1.5 }}>{t("childAccountNote")}</span>

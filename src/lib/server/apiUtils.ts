@@ -10,7 +10,16 @@ import { UnauthorizedError, ForbiddenError } from "@/lib/server/currentProfile";
 export function handleApiError(err: unknown) {
   if (err instanceof ZodError) {
     console.error("[api] validation error:", err.issues);
-    return NextResponse.json({ error: "Invalid input", details: err.issues }, { status: 400 });
+    // Name the offending fields in `error` too — the client only surfaces
+    // `error`, and a bare "Invalid input" gives the user nothing to act on.
+    // Zod messages describe our own schema, so this leaks no internals.
+    const summary = err.issues
+      .map((i) => (i.path.length ? `${i.path.join(".")}: ${i.message}` : i.message))
+      .join("; ");
+    return NextResponse.json(
+      { error: summary ? `Invalid input — ${summary}` : "Invalid input", details: err.issues },
+      { status: 400 },
+    );
   }
   if (err instanceof UnauthorizedError) {
     console.error("[api] unauthorized:", err.message);
