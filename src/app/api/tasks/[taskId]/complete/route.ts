@@ -3,6 +3,7 @@ import { requireChild } from "@/lib/server/currentProfile";
 import { createClient } from "@/lib/supabase/server";
 import { handleApiError } from "@/lib/server/apiUtils";
 import { notify } from "@/lib/server/notify";
+import { getTaskPhotoUrl } from "@/lib/server/taskPhotos";
 
 // Child marks a task as done. Delegates entirely to the
 // `submit_task_completion` SECURITY DEFINER function, which — in a single
@@ -17,11 +18,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ta
 
     const { data: task, error: fetchError } = await supabase
       .from("tasks")
-      .select("assigned_child_id, created_by_parent_id, title")
+      .select("assigned_child_id, created_by_parent_id, title, requires_photo")
       .eq("id", taskId)
       .single();
     if (fetchError || !task) throw new Error("Task not found");
     if (task.assigned_child_id !== child.id) throw new Error("Not your task");
+
+    // A photo task is not done until the photo exists. Checked here rather
+    // than trusting the client's disabled button — this route is the only way
+    // a child can reach submit_task_completion.
+    if (task.requires_photo && !(await getTaskPhotoUrl(taskId))) {
+      throw new Error("This task needs a photo before you can finish it.");
+    }
 
     const { data, error } = await supabase.rpc("submit_task_completion", { p_task_id: taskId }).single();
     if (error) {

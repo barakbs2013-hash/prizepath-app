@@ -3,6 +3,7 @@ import { randomUUID } from "crypto";
 import { requireChild } from "@/lib/server/currentProfile";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/server/serviceClient";
+import { TASK_PHOTO_BUCKET } from "@/lib/server/taskPhotos";
 import { taskPhotoUploadSchema } from "@/lib/validation/schemas";
 import { handleApiError } from "@/lib/server/apiUtils";
 
@@ -48,24 +49,25 @@ export async function POST(request: Request, { params }: { params: Promise<{ tas
     const buffer = Buffer.from(await file.arrayBuffer());
 
     const { error: uploadError } = await admin.storage
-      .from("task-photos")
+      .from(TASK_PHOTO_BUCKET)
       .upload(path, buffer, { contentType: file.type, upsert: false });
     if (uploadError) {
       console.error("[tasks] photo upload failed:", uploadError);
       throw new Error("Could not upload the photo");
     }
 
-    const { data: publicUrl } = admin.storage.from("task-photos").getPublicUrl(path);
-
-    const { error: updateError } = await admin
-      .from("tasks")
-      .update({ proof_photo_url: publicUrl.publicUrl, proof_photo_uploaded_at: new Date().toISOString() })
-      .eq("id", taskId);
-    if (updateError) {
-      console.error("[tasks] could not attach photo to task:", updateError);
-      throw new Error("Could not save the photo");
+    // A retake replaces the previous photo instead of piling up next to it,
+    // so the folder holds exactly the photo the parent will be shown. Failing
+    // to clean up is not worth failing the upload over — the newest object
+    // still wins — so this is best-effort.
+    const { data: existing } = await admin.storage.from(TASK_PHOTO_BUCKET).list(taskId, { limit: 100 });
+    const stale = (existing ?? []).map((f) => `${taskId}/${f.name}`).filter((p) => p !== path);
+    if (stale.length > 0) {
+      const { error: removeError } = await admin.storage.from(TASK_PHOTO_BUCKET).remove(stale);
+      if (removeError) console.error("[tasks] could not remove replaced photos:", removeError);
     }
 
+    const { data: publicUrl } = admin.storage.from(TASK_PHOTO_BUCKET).getPublicUrl(path);
     return NextResponse.json({ url: publicUrl.publicUrl });
   } catch (err) {
     return handleApiError(err);

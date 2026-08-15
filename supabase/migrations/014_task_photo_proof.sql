@@ -1,24 +1,18 @@
 -- 014_task_photo_proof.sql
--- Photo proof for tasks created with requires_photo.
+-- OPTIONAL hardening for photo proof. The app does NOT need this migration:
+-- proof photos live at `task-photos/<task id>/`, the bucket is the record, and
+-- /api/tasks/[taskId]/complete refuses to submit a requires_photo task with an
+-- empty folder. Running this moves that same rule into the database, so it
+-- holds even for a caller that reaches the RPC directly.
 --
--- Before this, requires_photo was display-only: nothing stored a photo and
--- nothing checked for one, so a child could finish a photo task without ever
--- attaching anything. This adds the column, the bucket, and — most
--- importantly — the check inside submit_task_completion, so the rule holds
--- even if a request skips the API route.
+-- The bucket is created by the app's setup (or here, if missing).
 
-alter table public.tasks add column if not exists proof_photo_url text;
-alter table public.tasks add column if not exists proof_photo_uploaded_at timestamptz;
-
--- Bucket for the proof photos. Public-read like reward-images: paths are
--- random UUIDs, so a URL is unguessable, and the parent's approval screen can
--- render the image without minting signed URLs on every page load.
 insert into storage.buckets (id, name, public)
 values ('task-photos', 'task-photos', true)
 on conflict (id) do nothing;
 
--- Uploads go through the server with the service role (which bypasses these
--- policies); the policy below only covers public read of the bucket.
+-- Uploads go through the server with the service role, which bypasses these
+-- policies; this only covers public read so parents can view the photo.
 drop policy if exists task_photos_public_read on storage.objects;
 create policy task_photos_public_read on storage.objects
   for select using (bucket_id = 'task-photos');
@@ -47,7 +41,11 @@ begin
   end if;
 
   -- A photo task is not done until the photo exists.
-  if v_task.requires_photo and coalesce(v_task.proof_photo_url, '') = '' then
+  if v_task.requires_photo and not exists (
+    select 1 from storage.objects
+    where bucket_id = 'task-photos'
+      and name like p_task_id::text || '/%'
+  ) then
     raise exception 'photo_required';
   end if;
 

@@ -4,6 +4,7 @@ import { getFamilyForParent } from "@/lib/server/family";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n";
 import { ApprovalRow } from "@/components/parent/ApprovalRow";
+import { getTaskPhotoUrls } from "@/lib/server/taskPhotos";
 
 export default async function ParentApprovalsPage() {
   const profile = await getCurrentProfile();
@@ -19,6 +20,10 @@ export default async function ParentApprovalsPage() {
         .eq("status", "waiting_for_approval")
         .order("completed_at", { ascending: true })
     : { data: [] as any[] };
+
+  const photoUrls = await getTaskPhotoUrls(
+    (tasks ?? []).filter((task: any) => task.requires_photo).map((task: any) => task.id)
+  );
 
   return (
     <div style={{ padding: "10px 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -36,7 +41,7 @@ export default async function ParentApprovalsPage() {
           title={task.title}
           childName={task.child?.display_name ?? ""}
           points={task.points_value}
-          photoUrl={task.proof_photo_url ?? null}
+          photoUrl={photoUrls[task.id] ?? null}
           requiresPhoto={task.requires_photo}
         />
       ))}

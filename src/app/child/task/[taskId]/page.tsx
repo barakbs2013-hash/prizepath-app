@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n";
 import { TaskActions } from "@/components/child/TaskActions";
 import { TaskPhotoProof } from "@/components/child/TaskPhotoProof";
+import { getTaskPhotoUrl } from "@/lib/server/taskPhotos";
 
 export default async function ChildTaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = await params;
@@ -16,6 +17,8 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
   if (!task) notFound();
 
   const { data: steps } = await supabase.from("task_steps").select("*").eq("task_id", taskId).order("position");
+
+  const photoUrl = task.requires_photo ? await getTaskPhotoUrl(taskId) : null;
 
   const urgencyLabel = task.urgency === "high" ? t("urgHigh") : task.urgency === "low" ? t("urgLow") : t("urgMedium");
 
@@ -81,7 +84,7 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
           </span>
         </Link>
 
-        {task.requires_photo && <TaskPhotoProof taskId={task.id} photoUrl={task.proof_photo_url ?? null} />}
+        {task.requires_photo && <TaskPhotoProof taskId={task.id} photoUrl={photoUrl} />}
       </div>
 
       <div style={{ flex: 1 }} />
@@ -90,7 +93,7 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
           taskId={task.id}
           status={task.status}
           requiresPhoto={task.requires_photo}
-          hasPhoto={Boolean(task.proof_photo_url)}
+          hasPhoto={Boolean(photoUrl)}
         />
       </div>
     </div>
