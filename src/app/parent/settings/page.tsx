@@ -1,11 +1,16 @@
 import { getCurrentProfile } from "@/lib/server/currentProfile";
 import { getDictionary } from "@/lib/i18n";
 import { LanguageSettingRow } from "@/components/LanguageSettingRow";
+import { PlanSettingRow } from "@/components/parent/PlanSettingRow";
 import { SignOutButton } from "@/components/SignOutButton";
+import { getFamilyForParent } from "@/lib/server/family";
+import { getFamilyPlan } from "@/lib/server/subscription";
 
 export default async function ParentSettingsPage() {
   const profile = await getCurrentProfile();
   const t = (k: string) => (getDictionary(profile?.preferredLanguage ?? "he") as Record<string, string>)[k] ?? k;
+  const familyId = profile ? await getFamilyForParent(profile.id) : null;
+  const plan = await getFamilyPlan(familyId);
 
   return (
     <div style={{ padding: "10px 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
@@ -26,6 +31,7 @@ export default async function ParentSettingsPage() {
       </button>
 
       <div className="pp-card" style={{ padding: 0, overflow: "hidden" }}>
+        <PlanSettingRow initialPlan={plan} />
         <LanguageSettingRow />
       </div>
 

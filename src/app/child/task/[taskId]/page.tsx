@@ -6,6 +6,7 @@ import { getDictionary } from "@/lib/i18n";
 import { TaskActions } from "@/components/child/TaskActions";
 import { TaskPhotoProof } from "@/components/child/TaskPhotoProof";
 import { getTaskPhotoUrl } from "@/lib/server/taskPhotos";
+import { isFamilyPremium } from "@/lib/server/subscription";
 
 export default async function ChildTaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = await params;
@@ -19,6 +20,7 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
   const { data: steps } = await supabase.from("task_steps").select("*").eq("task_id", taskId).order("position");
 
   const photoUrl = task.requires_photo ? await getTaskPhotoUrl(taskId) : null;
+  const premium = await isFamilyPremium(task.family_id);
 
   const urgencyLabel = task.urgency === "high" ? t("urgHigh") : task.urgency === "low" ? t("urgLow") : t("urgMedium");
 
@@ -71,18 +73,33 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
           )}
         </div>
 
-        <Link
-          href={`/child/ai/${task.id}`}
-          style={{ display: "flex", alignItems: "center", gap: 12, padding: 15, borderRadius: 20, border: "1.5px dashed #B9A8F0", background: "var(--pp-purple-tint)", color: "var(--pp-text)" }}
-        >
-          <span style={{ width: 42, height: 42, borderRadius: 14, background: "var(--pp-purple)", display: "grid", placeItems: "center", flex: "none" }}>
-            <i className="ph-fill ph-sparkle" style={{ fontSize: 21, color: "#fff" }} />
-          </span>
-          <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
-            <span style={{ fontWeight: 600, fontSize: 14.5 }}>{t("stuck")}</span>
-            <span style={{ fontSize: 12.5, color: "var(--pp-text-muted)" }}>{t("stuckSub")}</span>
-          </span>
-        </Link>
+        {/* Pip is Premium-only. Free families still see the card — it's how
+            they learn the feature exists — but it doesn't link anywhere. */}
+        {premium ? (
+          <Link
+            href={`/child/ai/${task.id}`}
+            style={{ display: "flex", alignItems: "center", gap: 12, padding: 15, borderRadius: 20, border: "1.5px dashed #B9A8F0", background: "var(--pp-purple-tint)", color: "var(--pp-text)" }}
+          >
+            <span style={{ width: 42, height: 42, borderRadius: 14, background: "var(--pp-purple)", display: "grid", placeItems: "center", flex: "none" }}>
+              <i className="ph-fill ph-sparkle" style={{ fontSize: 21, color: "#fff" }} />
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+              <span style={{ fontWeight: 600, fontSize: 14.5 }}>{t("stuck")}</span>
+              <span style={{ fontSize: 12.5, color: "var(--pp-text-muted)" }}>{t("stuckSub")}</span>
+            </span>
+          </Link>
+        ) : (
+          <div style={{ display: "flex", alignItems: "center", gap: 12, padding: 15, borderRadius: 20, border: "1.5px dashed #E0E6F2", background: "var(--pp-bg-alt)", color: "var(--pp-text-muted)" }}>
+            <span style={{ width: 42, height: 42, borderRadius: 14, background: "#E7EBF3", display: "grid", placeItems: "center", flex: "none" }}>
+              <i className="ph-fill ph-lock-key" style={{ fontSize: 20, color: "var(--pp-text-faint)" }} />
+            </span>
+            <span style={{ display: "flex", flexDirection: "column", gap: 2, flex: 1 }}>
+              <span style={{ fontWeight: 600, fontSize: 14.5, color: "var(--pp-text)" }}>{t("stuck")}</span>
+              <span style={{ fontSize: 12.5 }}>{t("premiumOnlySub")}</span>
+            </span>
+            <span style={{ fontSize: 10.5, fontWeight: 700, color: "#7A4E00", background: "linear-gradient(120deg,#FFD873,#FFB020)", padding: "5px 9px", borderRadius: 99 }}>PRO</span>
+          </div>
+        )}
 
         {task.requires_photo && <TaskPhotoProof taskId={task.id} photoUrl={photoUrl} />}
       </div>

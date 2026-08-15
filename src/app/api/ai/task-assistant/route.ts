@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
-import { requireChild } from "@/lib/server/currentProfile";
+import { ForbiddenError, requireChild } from "@/lib/server/currentProfile";
+import { getFamilyForChild } from "@/lib/server/family";
+import { isFamilyPremium } from "@/lib/server/subscription";
 import { createClient } from "@/lib/supabase/server";
 import { createServiceClient } from "@/lib/server/serviceClient";
 import { getAiProvider } from "@/lib/server/aiProvider";
@@ -8,6 +10,22 @@ import { aiTaskAssistantSchema } from "@/lib/validation/schemas";
 import { handleApiError } from "@/lib/server/apiUtils";
 
 const RATE_LIMIT_PER_HOUR = 20;
+
+const PREMIUM_ONLY = "Pip, the AI helper, is part of PrizePath Premium.";
+
+/**
+ * Pip is a paid feature: a child may only use it while their family is on
+ * the premium plan. Checked on every AI request, not just at render time, so
+ * an open chat tab stops working the moment the plan lapses.
+ */
+async function requirePremiumChild() {
+  const child = await requireChild();
+  const familyId = await getFamilyForChild(child.id);
+  if (!(await isFamilyPremium(familyId))) {
+    throw new ForbiddenError(PREMIUM_ONLY);
+  }
+  return child;
+}
 
 function systemPrompt(opts: { childName: string; taskTitle: string; taskDescription: string; premium: boolean; language: string }) {
   const langLine =
@@ -37,7 +55,7 @@ ${PIP_JSON_SHAPE}`;
 
 export async function GET(request: Request) {
   try {
-    const child = await requireChild();
+    const child = await requirePremiumChild();
     const { searchParams } = new URL(request.url);
     const taskId = searchParams.get("taskId");
     if (!taskId) throw new Error("taskId is required");
@@ -68,7 +86,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const child = await requireChild();
+    const child = await requirePremiumChild();
     const body = aiTaskAssistantSchema.parse(await request.json());
     const supabase = await createClient();
     const admin = createServiceClient();
@@ -107,13 +125,10 @@ export async function POST(request: Request) {
       );
     }
 
-    // Subscription plan gates prompt depth (premium vs free planning).
-    const { data: subscription } = await admin
-      .from("subscriptions")
-      .select("plan, status")
-      .eq("family_id", task.family_id)
-      .maybeSingle();
-    const premium = subscription?.plan === "premium" && subscription?.status === "active";
+    // Reaching here means the family is premium (requirePremiumChild), so the
+    // deeper planning prompt always applies — the old free-tier prompt branch
+    // is now unreachable by design.
+    const premium = true;
 
     // Find or create the conversation for this task+child.
     let conversationId: string;
