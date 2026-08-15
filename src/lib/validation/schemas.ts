@@ -85,6 +85,12 @@ export const updateTaskSchema = createTaskSchema.partial().extend({
 
 export const taskIdSchema = z.object({ taskId: uuid });
 
+// The note a parent writes when sending a task back. Optional: sending back
+// without a reason stays a one-tap action.
+export const rejectTaskSchema = z.object({
+  reason: z.string().trim().max(300).optional(),
+});
+
 export const createTaskStepSchema = z.object({
   taskId: uuid,
   text: z.string().trim().min(1).max(500),

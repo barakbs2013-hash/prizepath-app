@@ -22,6 +22,24 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
   const photoUrl = task.requires_photo ? await getTaskPhotoUrl(taskId) : null;
   const premium = await isFamilyPremium(task.family_id);
 
+  // Why a task came back is recorded on the notification the reject route
+  // writes, so the reason survives on the task screen and not just in the
+  // notification list. Only relevant while the task is open again.
+  let sentBackReason: string | null = null;
+  if (["pending", "in_progress"].includes(task.status)) {
+    const { data: lastSendBack } = await supabase
+      .from("notifications")
+      .select("message")
+      .eq("type", "task_sent_back")
+      .eq("related_entity_id", taskId)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    // The message is "<task title> — <reason>"; show just the reason.
+    const parts = lastSendBack?.message?.split(" — ") ?? [];
+    if (parts.length > 1) sentBackReason = parts.slice(1).join(" — ");
+  }
+
   const urgencyLabel = task.urgency === "high" ? t("urgHigh") : task.urgency === "low" ? t("urgLow") : t("urgMedium");
 
   return (
@@ -32,6 +50,15 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
       </div>
 
       <div style={{ padding: "0 16px 24px", display: "flex", flexDirection: "column", gap: 14 }}>
+        {sentBackReason && (
+          <div style={{ display: "flex", gap: 11, padding: 14, borderRadius: 18, background: "var(--pp-amber-tint)", border: "1px solid #FFE0A3" }}>
+            <i className="ph-fill ph-arrow-counter-clockwise" style={{ fontSize: 19, color: "var(--pp-amber-dark)", flex: "none" }} />
+            <span style={{ display: "flex", flexDirection: "column", gap: 3 }}>
+              <span style={{ fontSize: 13.5, fontWeight: 600 }}>{t("sentBackReason")}</span>
+              <span style={{ fontSize: 13.5, lineHeight: 1.5, color: "var(--pp-text-soft)" }}>{sentBackReason}</span>
+            </span>
+          </div>
+        )}
         <div className="pp-card" style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <div style={{ display: "flex", gap: 13, alignItems: "flex-start" }}>
             <span style={{ width: 50, height: 50, borderRadius: 16, background: "var(--pp-bg-alt)", display: "grid", placeItems: "center", flex: "none" }}>
