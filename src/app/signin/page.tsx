@@ -11,7 +11,7 @@ export default function SignInPage() {
   const { t } = useLocale();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [identifier, setIdentifier] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -28,8 +28,16 @@ export default function SignInPage() {
     setError(null);
     setLoading(true);
     try {
-      await api.post("/api/auth/parent-signin", { email, password });
-      router.push("/parent/home");
+      // Children log in with a username, not an email — this one form serves
+      // both roles, so route on the shape of what was typed rather than
+      // forcing everyone through email validation.
+      if (identifier.includes("@")) {
+        await api.post("/api/auth/parent-signin", { email: identifier, password });
+        router.push("/parent/home");
+      } else {
+        await api.post("/api/auth/child-signin", { username: identifier, pin: password });
+        router.push("/child/home");
+      }
       router.refresh();
     } catch (err) {
       setError(err instanceof Error ? err.message : t("genericError"));
@@ -47,11 +55,23 @@ export default function SignInPage() {
           <p className="pp-sub">{t("signInSub")}</p>
         </div>
         <label className="pp-field">
-          {t("email")}
-          <input className="pp-input" type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          {t("emailOrUsername")}
+          <input
+            className="pp-input"
+            type="text"
+            inputMode="email"
+            autoComplete="username"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            required
+          />
+          <span style={{ fontSize: 12.5, color: "var(--pp-text-muted)" }}>{t("signInIdentifierHint")}</span>
         </label>
         <label className="pp-field">
-          {t("password")}
+          {t("passwordOrPin")}
           <input className="pp-input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         </label>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", fontSize: 13.5 }}>

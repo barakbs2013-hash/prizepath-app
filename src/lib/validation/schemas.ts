@@ -57,7 +57,12 @@ export const createChildSchema = z.object({
 
 export const childSignInSchema = z.object({
   username: z.string().trim().toLowerCase().min(1).max(32),
-  pin: z.string().trim().min(4).max(6).regex(/^[0-9]+$/),
+  pin: z
+    .string()
+    .trim()
+    .min(4, "a child PIN is 4-6 digits")
+    .max(6, "a child PIN is 4-6 digits")
+    .regex(/^[0-9]+$/, "a child PIN is digits only"),
 });
 
 export const createTaskSchema = z.object({
