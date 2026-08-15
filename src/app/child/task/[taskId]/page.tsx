@@ -4,6 +4,7 @@ import { getCurrentProfile } from "@/lib/server/currentProfile";
 import { createClient } from "@/lib/supabase/server";
 import { getDictionary } from "@/lib/i18n";
 import { TaskActions } from "@/components/child/TaskActions";
+import { TaskPhotoProof } from "@/components/child/TaskPhotoProof";
 
 export default async function ChildTaskDetailPage({ params }: { params: Promise<{ taskId: string }> }) {
   const { taskId } = await params;
@@ -80,22 +81,17 @@ export default async function ChildTaskDetailPage({ params }: { params: Promise<
           </span>
         </Link>
 
-        {task.requires_photo && (
-          <div className="pp-card" style={{ display: "flex", flexDirection: "column", gap: 11 }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 8, fontWeight: 600, fontSize: 14.5 }}>
-              <i className="ph ph-camera" style={{ fontSize: 19, color: "var(--pp-blue)" }} />{t("photoProof")}
-            </div>
-            <p style={{ margin: 0, fontSize: 13, color: "var(--pp-text-muted)" }}>{t("photoProofSub")}</p>
-            <button className="pp-btn pp-btn-secondary" type="button" disabled>
-              <i className="ph ph-camera-plus" style={{ fontSize: 22 }} />{t("addPhoto")}
-            </button>
-          </div>
-        )}
+        {task.requires_photo && <TaskPhotoProof taskId={task.id} photoUrl={task.proof_photo_url ?? null} />}
       </div>
 
       <div style={{ flex: 1 }} />
       <div style={{ padding: "14px 16px 18px" }}>
-        <TaskActions taskId={task.id} status={task.status} />
+        <TaskActions
+          taskId={task.id}
+          status={task.status}
+          requiresPhoto={task.requires_photo}
+          hasPhoto={Boolean(task.proof_photo_url)}
+        />
       </div>
     </div>
   );

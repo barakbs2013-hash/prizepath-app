@@ -125,3 +125,17 @@ export const imageUploadSchema = z.object({
   mimeType: z.enum(["image/png", "image/jpeg", "image/webp", "image/gif"]),
   sizeBytes: z.number().int().min(1).max(5 * 1024 * 1024),
 });
+
+// Proof photos come straight off a phone camera, so the limits are looser
+// than for parent-picked reward art: HEIC is what iOS hands over, and a
+// full-resolution capture routinely passes 5MB.
+export const taskPhotoUploadSchema = z.object({
+  mimeType: z.enum([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "image/heic",
+    "image/heif",
+  ], { message: "please upload a photo (JPEG, PNG, WebP or HEIC)" }),
+  sizeBytes: z.number().int().min(1).max(12 * 1024 * 1024, "photo must be under 12MB"),
+});

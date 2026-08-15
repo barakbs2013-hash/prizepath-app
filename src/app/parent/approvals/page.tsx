@@ -30,7 +30,15 @@ export default async function ParentApprovalsPage() {
       {(!tasks || tasks.length === 0) && <p className="pp-empty">{t("noApprovals")}</p>}
 
       {tasks?.map((task: any) => (
-        <ApprovalRow key={task.id} taskId={task.id} title={task.title} childName={task.child?.display_name ?? ""} points={task.points_value} />
+        <ApprovalRow
+          key={task.id}
+          taskId={task.id}
+          title={task.title}
+          childName={task.child?.display_name ?? ""}
+          points={task.points_value}
+          photoUrl={task.proof_photo_url ?? null}
+          requiresPhoto={task.requires_photo}
+        />
       ))}
     </div>
   );

@@ -24,7 +24,14 @@ export async function POST(_request: Request, { params }: { params: Promise<{ ta
     if (task.assigned_child_id !== child.id) throw new Error("Not your task");
 
     const { data, error } = await supabase.rpc("submit_task_completion", { p_task_id: taskId }).single();
-    if (error) throw new Error(error.message || "Could not complete task");
+    if (error) {
+      // The function raises a bare code for this one; turn it into something
+      // a child can act on instead of surfacing raw Postgres text.
+      if (error.message?.includes("photo_required")) {
+        throw new Error("This task needs a photo before you can finish it.");
+      }
+      throw new Error(error.message || "Could not complete task");
+    }
 
     const result = data as { status: string } | null;
     const awaitingApproval = result?.status === "waiting_for_approval";

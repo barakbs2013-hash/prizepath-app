@@ -5,7 +5,21 @@ import { useRouter } from "next/navigation";
 import { useLocale } from "@/components/LocaleProvider";
 import { api } from "@/lib/apiClient";
 
-export function ApprovalRow({ taskId, title, childName, points }: { taskId: string; title: string; childName: string; points: number }) {
+export function ApprovalRow({
+  taskId,
+  title,
+  childName,
+  points,
+  photoUrl = null,
+  requiresPhoto = false,
+}: {
+  taskId: string;
+  title: string;
+  childName: string;
+  points: number;
+  photoUrl?: string | null;
+  requiresPhoto?: boolean;
+}) {
   const { t } = useLocale();
   const router = useRouter();
   const [loading, setLoading] = useState<"approve" | "reject" | null>(null);
@@ -32,6 +46,25 @@ export function ApprovalRow({ taskId, title, childName, points }: { taskId: stri
           <i className="ph-fill ph-star" style={{ fontSize: 14 }} />{points}
         </span>
       </div>
+      {/* The proof photo is the whole point of requires_photo — show it here
+          so approving is a decision, not a guess. */}
+      {photoUrl && (
+        <a href={photoUrl} target="_blank" rel="noreferrer" style={{ display: "block" }}>
+          {/* eslint-disable-next-line @next/next/no-img-element -- user upload
+              on a Supabase public bucket; no image loader for that host. */}
+          <img
+            src={photoUrl}
+            alt={t("photoAttached")}
+            style={{ width: "100%", maxHeight: 220, objectFit: "cover", borderRadius: 14 }}
+          />
+        </a>
+      )}
+      {requiresPhoto && !photoUrl && (
+        <div style={{ display: "flex", alignItems: "center", gap: 7, fontSize: 12.5, color: "var(--pp-text-muted)" }}>
+          <i className="ph ph-camera-slash" style={{ fontSize: 16 }} />
+          {t("photoMissing")}
+        </div>
+      )}
       <div style={{ display: "flex", gap: 10 }}>
         <button className="pp-btn pp-btn-danger" disabled={!!loading} onClick={() => act("reject")}>
           <i className="ph ph-arrow-counter-clockwise" style={{ fontSize: 17 }} />{t("sendBack")}
